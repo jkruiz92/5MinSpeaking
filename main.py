@@ -3,6 +3,10 @@ import time
 import keyboard
 import pyaudio
 import wave
+import librosa
+import numpy as np
+import soundfile as sf
+from vosk import Model, KaldiRecognizer
 
 
 class app():
@@ -70,13 +74,33 @@ class app():
             wf.setframerate(self.RATE)
             wf.writeframes(b''.join(self.frames))
         print(f"File saved as {self.OUTPUT_FILE}")
-        return self.file
 
-    def speech_to_text(self,file):
+        return self.file, len(self.frames)
+
+    def speech_to_text(self,file, frames):
         """
-        This functions transcribes the audio file to text.
+        This functions transcribes the audio file to text.as
         """
         print(file)
+
+        #normalize audio
+        audio, sr = librosa.load(file, sr=None)
+        normalized_audio = audio / np.max(np.abs(audio))
+        n_file = self.OUTPUT_DIR + 'normalized_audio.wav'
+        sf.write(n_file, normalized_audio, sr)
+
+        #STT
+        model = Model("model_path")
+        recognizer = KaldiRecognizer(model, 44100)
+
+        wf = wave.open(n_file, "rb")
+        while True:
+            data = wf.readframes(frames)
+            if len(data) == 0:
+                break
+        if recognizer.AcceptWaveform(data):
+            print(recognizer.Result())
+
         pass
     
     def analyse_speech(self, text):
@@ -101,5 +125,5 @@ class app():
     #main function
 
 if __name__ == "__main__":
-    file = app().record()
-    app().speech_to_text(file)
+    file, frames = app().record()
+    app().speech_to_text(file, frames)
