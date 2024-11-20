@@ -1,5 +1,6 @@
 import os
 import time
+import keyboard
 import pyaudio
 import wave
 
@@ -10,15 +11,17 @@ class app():
         This class configure the voice audio source and the languages for input-output conversion.
         """
         self.input = ""
-        self.FORMAT = pyaudio.paInt16       # Formato de audio
+        self.FORMAT = pyaudio.paInt16       # Formato de audioS
         self.CHANNELS = 1                    # Número de canales (1 para mono, 2 para estéreo)
         self.RATE = 44100                   # Frecuencia de muestreo (Hz)
         self.CHUNK = 1024                   # Tamaño de cada bloque de datos
+        self.OUTPUT_DIR = os. getcwd()+"/records/"
         self.OUTPUT_FILE = "recording.wav"  # Nombre del archivo de salida
         self.language_in = ""
         self.language_out = ""
+        self.file =""
 
-    def in_source_connect(self):
+    def record(self):
         """
         Function that search and connect to the selected audio source.
         """
@@ -31,17 +34,16 @@ class app():
                             input=True,
                             frames_per_buffer=self.CHUNK)
         
-        print("Input channel connected.")
-
-        
+        print("Input channel connected.\nPress 'A' key to start recording.")
 
         self.frames = []
 
-        print("Recording...")
+        while not keyboard.is_pressed('a'):
+            pass
 
+        print("Recording...\nPress 'S' key when speech is finished.s")
 
-        for _ in range(0, int(self.RATE / self.CHUNK * 5)):
-            print(int(self.RATE / self.CHUNK * 3))
+        while not keyboard.is_pressed('s'):
             data = self.stream.read(self.CHUNK)
             self.frames.append(data)
 
@@ -55,54 +57,26 @@ class app():
         # Guardar los datos en un archivo .wav
         print("Saving file...")
 
-        with wave.open(self.OUTPUT_FILE, 'wb') as wf:
+        try:
+            os.mkdir(self.OUTPUT_DIR)
+        except:
+            pass
+
+        self.file = self.OUTPUT_DIR+self.OUTPUT_FILE
+        print(self.file)
+        with wave.open(self.file, 'wb') as wf:
             wf.setnchannels((self.CHANNELS))
             wf.setsampwidth(self.audio.get_sample_size(self.FORMAT))
             wf.setframerate(self.RATE)
             wf.writeframes(b''.join(self.frames))
         print(f"File saved as {self.OUTPUT_FILE}")
-        pass
+        return self.file
 
-    def start_recording(self):
-        """
-        This function start the record of audio input
-        """
-
-        print("Recording...")
-
-        self.frames = []
-
-        for _ in range(0, int(self.RATE / self.CHUNK * 3)):
-            print (int(self.RATE / self.CHUNK * 3))
-            data = self.stream.read(self.CHUNK)
-            self.frames.append(data)
-
-        pass
-
-    def stop_recording(self):
-        """
-        This function stops the audio input record.
-        """
-
-        self.stream.stop_stream()
-        self.stream.close()
-        self.audio.terminate()
-        print("Record stopped.")
-
-        # Guardar los datos en un archivo .wav
-        with wave.open(self.OUTPUT_FILE, 'wb') as wf:
-            wf.setnchannels((self.CHANNELS))
-            wf.setsampwidth(self.audio.get_sample_size(self.FORMAT))
-            wf.setframerate((self.RATE))
-            wf.writeframes(b''.join(self.frames))
-        print(f"Archivo guardado como {self.OUTPUT_FILE}")
-              
-        pass
-
-    def speech_to_text(self, audio_file):
+    def speech_to_text(self,file):
         """
         This functions transcribes the audio file to text.
         """
+        print(file)
         pass
     
     def analyse_speech(self, text):
@@ -127,6 +101,5 @@ class app():
     #main function
 
 if __name__ == "__main__":
-    app().in_source_connect()
-    #app().start_recording()
-    #app().stop_recording()
+    file = app().record()
+    app().speech_to_text(file)
