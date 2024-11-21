@@ -114,11 +114,8 @@ class app():
         """
         # Load the Vosk model
 
-        model_path = self.OUTPUT_DIR + "vosk_models/" + model
+        model_path = (os.getcwd() + "/vosk_models/" + model)
         print(model_path)
-
-        #as proves
-        model_path = "C:/temp/projects/others/5MinSpeaking/vosk_models/vosk-model-small-es-0.42"
         
         model = Model(model_path)
 
@@ -172,7 +169,8 @@ class app():
         """
         pass
 
-    #main function
+
+#main function
 
 if __name__ == "__main__":
     file = app().record()
