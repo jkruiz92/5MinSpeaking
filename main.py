@@ -3,9 +3,9 @@ import time
 import keyboard
 import pyaudio
 import wave
-import librosa
 import numpy as np
 import soundfile as sf
+import json
 from vosk import Model, KaldiRecognizer
 
 
@@ -17,7 +17,7 @@ class app():
         self.input = ""
         self.FORMAT = pyaudio.paInt16       # Formato de audioS
         self.CHANNELS = 1                    # Número de canales (1 para mono, 2 para estéreo)
-        self.RATE = 44100                   # Frecuencia de muestreo (Hz)
+        self.RATE = 16000                   # Frecuencia de muestreo (Hz)
         self.CHUNK = 1024                   # Tamaño de cada bloque de datos
         self.OUTPUT_DIR = os. getcwd()+"/records/"
         self.OUTPUT_FILE = "recording.wav"  # Nombre del archivo de salida
@@ -74,34 +74,84 @@ class app():
             wf.setframerate(self.RATE)
             wf.writeframes(b''.join(self.frames))
         print(f"File saved as {self.OUTPUT_FILE}")
+        return self.file
 
-        return self.file, len(self.frames)
-
-    def speech_to_text(self,file, frames):
+    def normalize_audio(self,file):
         """
-        This functions transcribes the audio file to text.as
+        This functions transcribes the audio file to text.
+
         """
-        print(file)
 
-        #normalize audio
-        audio, sr = librosa.load(file, sr=None)
-        normalized_audio = audio / np.max(np.abs(audio))
-        n_file = self.OUTPUT_DIR + 'normalized_audio.wav'
-        sf.write(n_file, normalized_audio, sr)
+        # load audio file
+        audio_data, samplerate = sf.read(file)
+    
+        # Verify number of channels (mono, stereo)
+        if len(audio_data.shape) > 1:
+            # Normalize more rhan 1 channel
+            max_val = np.max(np.abs(audio_data), axis=0)
+            normalized_data = audio_data / max_val
+        else:
+            # Normalize mono audio
+            max_val = np.max(np.abs(audio_data))
+            normalized_data = audio_data / max_val
 
-        #STT
-        model = Model("model_path")
-        recognizer = KaldiRecognizer(model, 44100)
+        # Save audio normalized
+        output_file = file.replace("recording", "n_recording")
+        sf.write(output_file, normalized_data, samplerate)
+        print(f"Normalized file saved as {output_file}")
+        return output_file
 
-        wf = wave.open(n_file, "rb")
-        while True:
-            data = wf.readframes(frames)
-            if len(data) == 0:
-                break
-        if recognizer.AcceptWaveform(data):
-            print(recognizer.Result())
+    def speech_to_text(self,file,model = "vosk-model-small-es-0.42" ):
+        """
+        Transcribe an audio file to text using Vosk.
 
-        pass
+        :param file_path: Path to the audio file (WAV format, mono, 16kHz recommended).
+        :param model_path: Path to the Vosk model directory.
+        :return: Transcription as a string.
+
+        # Ensure you download a Vosk model (e.g., from https://alphacephei.com/vosk/models) and
+        unzip it into /vosk_models directory
+        """
+        # Load the Vosk model
+
+        model_path = self.OUTPUT_DIR + "vosk_models/" + model
+        print(model_path)
+
+        #as proves
+        model_path = "C:/temp/projects/others/5MinSpeaking/vosk_models/vosk-model-small-es-0.42"
+        
+        model = Model(model_path)
+
+        # Open the audio file
+        with wave.open(file, "rb") as wf:
+            # Check if the audio file format is compatible
+            if wf.getnchannels() != 1:
+                raise ValueError("Audio file must be mono.")
+            if wf.getsampwidth() != 2:
+                raise ValueError("Audio file must have 16-bit samples.")
+            if wf.getframerate() not in [16000, 8000]:
+                raise ValueError("Audio file must have a sample rate of 8kHz or 16kHz.")
+
+            # Initialize the recognizer
+            recognizer = KaldiRecognizer(model, wf.getframerate())
+
+            # Transcribe audio
+            transcription = []
+            while True:
+                data = wf.readframes(4000)
+                if len(data) == 0:
+                    break
+                if recognizer.AcceptWaveform(data):
+                    result = json.loads(recognizer.Result())
+                    transcription.append(result.get("text", ""))
+
+            # Get the final result
+            final_result = json.loads(recognizer.FinalResult())
+            transcription.append(final_result.get("text", ""))
+
+        # Return the complete transcription
+        return " ".join(transcription)
+    
     
     def analyse_speech(self, text):
         """
@@ -125,5 +175,7 @@ class app():
     #main function
 
 if __name__ == "__main__":
-    file, frames = app().record()
-    app().speech_to_text(file, frames)
+    file = app().record()
+    n_file = app().normalize_audio(file)
+    text = app().speech_to_text(n_file)
+    print(text)
