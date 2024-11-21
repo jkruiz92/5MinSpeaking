@@ -1,3 +1,4 @@
 /records/
 /venv/
+/vosk_models/
 *.pyc
